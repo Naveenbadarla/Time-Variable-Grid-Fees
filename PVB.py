@@ -537,7 +537,7 @@ def warn_as_realism(batt_kwh, inv_kw, fcr_kw, afrr_kw,
 # ============================================================
 
 # ------------------------------------------------------------
-# SCENARIO ENGINE (PV-only → Battery → DA → DA+ID → AS)
+# SCENARIO ENGINE (PV-only → Battery → DA → DA+ID → AS + Module 3)
 # ------------------------------------------------------------
 def compute_scenario(
     load_kwh: float,
@@ -564,10 +564,15 @@ def compute_scenario(
     afrr_price_eur_per_mw_h: float,
     afrr_activation_factor: float,
     as_availability_share: float,
+    nne_savings_module3: float,
 ):
     """
     Main FLEX engine. Computes ALL configurations.
     Battery is NEVER allowed to export to grid (EEG compliant).
+
+    nne_savings_module3 = annual NNE savings from §14a Module 3
+    for flexible loads (EV/WP/etc.). We distribute this value
+    across configurations.
     """
 
     # --- PV production ---
@@ -624,6 +629,13 @@ def compute_scenario(
     net_batt_da_id = net_batt_base - (arbitrage_opt + id_arbitrage)
 
     # --------------------------------------------------------
+    # 5. §14a Module 3 – distribute NNE savings across configs
+    # --------------------------------------------------------
+    pv_only_m3   = nne_savings_module3 * 0.60
+    nonopt_m3    = nne_savings_module3 * 0.80
+    optimised_m3 = nne_savings_module3        # full benefit with DA/ID/AS
+
+    # --------------------------------------------------------
     # Assemble results (WITHOUT AS)
     # --------------------------------------------------------
     rows = [
@@ -638,7 +650,8 @@ def compute_scenario(
             "EEG revenue (€)": revenue_no_batt,
             "DA arbitrage (€)": 0.0,
             "ID arbitrage (€)": 0.0,
-            "Net annual cost (€)": net_no_batt,
+            "Module 3 savings (€)": pv_only_m3,
+            "Net annual cost (€)": net_no_batt - pv_only_m3,
         },
         {
             "Configuration": "Battery – non-optimised",
@@ -651,7 +664,8 @@ def compute_scenario(
             "EEG revenue (€)": revenue_batt,
             "DA arbitrage (€)": arbitrage_non,
             "ID arbitrage (€)": 0.0,
-            "Net annual cost (€)": net_batt_nonopt,
+            "Module 3 savings (€)": nonopt_m3,
+            "Net annual cost (€)": net_batt_nonopt - nonopt_m3,
         },
         {
             "Configuration": "Battery – DA-optimised",
@@ -664,7 +678,8 @@ def compute_scenario(
             "EEG revenue (€)": revenue_batt,
             "DA arbitrage (€)": arbitrage_opt,
             "ID arbitrage (€)": 0.0,
-            "Net annual cost (€)": net_batt_opt,
+            "Module 3 savings (€)": optimised_m3,
+            "Net annual cost (€)": net_batt_opt - optimised_m3,
         },
         {
             "Configuration": "Battery – DA+ID-optimised",
@@ -677,12 +692,13 @@ def compute_scenario(
             "EEG revenue (€)": revenue_batt,
             "DA arbitrage (€)": arbitrage_opt,
             "ID arbitrage (€)": id_arbitrage,
-            "Net annual cost (€)": net_batt_da_id,
+            "Module 3 savings (€)": optimised_m3,
+            "Net annual cost (€)": net_batt_da_id - optimised_m3,
         },
     ]
 
     # --------------------------------------------------------
-    # 5. Battery – DA+ID + Ancillary Services (Up-only)
+    # 6. Battery – DA+ID + Ancillary Services (Up-only)
     # --------------------------------------------------------
     if as_enabled and (fcr_power_kw > 0 or afrr_power_kw > 0):
         hours = 8760 * as_availability_share
@@ -703,6 +719,7 @@ def compute_scenario(
 
         net_with_as = (
             net_batt_da_id - fcr_capacity_rev - afrr_capacity_rev + activation_cost
+            - optimised_m3
         )
 
         rows.append({
@@ -720,10 +737,12 @@ def compute_scenario(
             "aFRR capacity revenue (€)": afrr_capacity_rev,
             "AS activation energy (kWh)": total_activation_energy,
             "AS activation cost (€)": activation_cost,
+            "Module 3 savings (€)": optimised_m3,
             "Net annual cost (€)": net_with_as,
         })
 
     return pd.DataFrame(rows)
+
 
 
 # ------------------------------------------------------------
@@ -1052,6 +1071,73 @@ def build_sidebar_inputs():
     da_spread_net = max(0.0, da_spread - da_overhead)
     id_spread_net = max(0.0, id_spread - id_overhead)
 
+        # ============================================================
+    # §14a EnWG – Module 3 (Time-variable grid fee)
+    # ============================================================
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🇩🇪 §14a EnWG – Module 3")
+
+    module3_enabled = st.sidebar.checkbox(
+        "Enable §14a Module 3 (time-variable NNE)",
+        value=False,
+        help="Models NNE savings from shifting flexible §14a loads (EV/WP/etc.) into NT windows."
+    )
+
+    if module3_enabled:
+        dso_name = st.sidebar.selectbox(
+            "Grid operator (DSO)",
+            list(MODULE3_PRESETS.keys())
+        )
+        dso = MODULE3_PRESETS[dso_name]
+
+        nne_flex_kwh = st.sidebar.number_input(
+            "§14a flexible load (kWh/year – EV, WP, etc.)",
+            min_value=0.0, value=2000.0, step=100.0,
+            help="Annual energy of controllable §14a-eligible loads."
+        )
+
+        nne_capture = st.sidebar.slider(
+            "Smart-control level (0–1)",
+            0.0, 1.0, 0.7,
+            help="1.0 = flexible load is shifted to NT whenever possible."
+        )
+
+        # Hour shares from DSO definition
+        ht_share = len(dso["ht_hours"]) / 24
+        nt_share = len(dso["nt_hours"]) / 24
+        st_share = 1.0 - ht_share - nt_share
+
+        nne_ht = dso["nne_ht"]
+        nne_st = dso["nne_st"]
+        nne_nt = dso["nne_nt"]
+
+        # Baseline average NNE price (no optimisation)
+        nne_avg_no_opt = (
+            ht_share * nne_ht +
+            st_share * nne_st +
+            nt_share * nne_nt
+        )
+
+        # Maximum possible NT share for flexible energy
+        max_nt_share_for_flex = min(1.0, nt_share / (ht_share + st_share + nt_share))
+
+        # After smart shifting
+        nt_share_after = nt_share + (ht_share + st_share) * nne_capture * max_nt_share_for_flex
+        ht_share_after = ht_share * (1 - nne_capture)
+        st_share_after = st_share * (1 - nne_capture)
+
+        nne_avg_opt = (
+            ht_share_after * nne_ht +
+            st_share_after * nne_st +
+            nt_share_after * nne_nt
+        )
+
+        nne_savings_module3 = nne_flex_kwh * (nne_avg_no_opt - nne_avg_opt)
+
+    else:
+        nne_savings_module3 = 0.0
+
+
 # ============================================================
     # ENTSO-E Live Market Input
     # ============================================================
@@ -1214,8 +1300,9 @@ def build_sidebar_inputs():
         da_spread_net, opt_cap, nonopt_cap, id_spread_net, id_cap, id_energy_factor,
         as_enabled, fcr_power_kw, fcr_price_eur_per_mw_h, fcr_activation_factor,
         afrr_power_kw, afrr_price_eur_per_mw_h, afrr_activation_factor,
-        as_availability_share
+        as_availability_share, nne_savings_module3
     )
+
 
 # ------------------------------------------------------------
 # END OF BLOCK 4
@@ -1235,8 +1322,9 @@ def build_sidebar_inputs():
     da_spread, opt_cap, nonopt_cap, id_spread, id_cap, id_energy_factor,
     as_enabled, fcr_power_kw, fcr_price_eur_per_mw_h, fcr_activation_factor,
     afrr_power_kw, afrr_price_eur_per_mw_h, afrr_activation_factor,
-    as_availability_share
+    as_availability_share, nne_savings_module3
 ) = build_sidebar_inputs()
+
 
 # ------------------------------------------------------------
 # RUN SCENARIO ENGINE
@@ -1266,6 +1354,7 @@ df = compute_scenario(
     afrr_price_eur_per_mw_h=afrr_price_eur_per_mw_h,
     afrr_activation_factor=afrr_activation_factor,
     as_availability_share=as_availability_share,
+    nne_savings_module3=nne_savings_module3,
 )
 
 # ------------------------------------------------------------
@@ -1415,7 +1504,7 @@ with tabs[0]:
     # ============================================================
     # SAFETY: Ensure AS columns exist
     # ============================================================
-    for col in ["FCR capacity revenue (€)", "aFRR capacity revenue (€)", "AS activation cost (€)"]:
+    for col in ["FCR capacity revenue (€)", "aFRR capacity revenue (€)", "AS activation cost (€)","Module 3 savings (€)"]:
         if col not in df.columns:
             df[col] = 0.0
 
@@ -1432,6 +1521,8 @@ with tabs[0]:
         + df.loc[df["Configuration"] == best_config, "aFRR capacity revenue (€)"].values[0]
         - df.loc[df["Configuration"] == best_config, "AS activation cost (€)"].values[0]
     )
+    value_m3 = abs(df.loc[df["Configuration"] == best_config, "Module 3 savings (€)"]).values[0]
+
 
     # ============================================================
     # 2) PIE CHART — WHERE DO YOUR SAVINGS COME FROM?
@@ -1440,8 +1531,8 @@ with tabs[0]:
     st.subheader("🥧 Where Do Your Savings Come From? (Best Scenario)")
 
     pie_df = pd.DataFrame({
-        "Component": ["PV", "DA Optimisation", "ID Optimisation", "Ancillary Services"],
-        "Value": [value_pv, value_da, value_id, value_as]
+        "Component": ["PV", "DA Optimisation", "ID Optimisation","Module 3 (NNE)", "Ancillary Services"],
+        "Value": [value_pv, value_da, value_id,value_m3, value_as]
     })
 
     pie_chart = (
@@ -2195,6 +2286,7 @@ with tabs[6]:
         afrr_price_eur_per_mw_h=s_afrr,
         afrr_activation_factor=afrr_activation_factor,
         as_availability_share=as_availability_share,
+        nne_savings_module3=nne_savings_module3,
     )
 
     st.subheader("📊 Sensitivity Result")
