@@ -351,92 +351,6 @@ def get_pvgis_yield_for_postcode(postal_code: str):
 
     return float(yield_kwh_per_kwp), lat, lon
 
-# ------------------------------------------------------------
-# §14a EnWG – Module 3 DSO presets (NNE grid-fee structures)
-# Prices in €/kWh, hours as 0–23
-# ------------------------------------------------------------
-MODULE3_PRESETS = {
-    "Westnetz": {
-        "nne_ht": 0.1565,
-        "nne_st": 0.0953,
-        "nne_nt": 0.0095,
-        "ht_hours": [15,16,17,18,19,20],
-        "nt_hours": [0,1,2,3,4,5,6,13,14,21,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "Avacon": {
-        "nne_ht": 0.0841,
-        "nne_st": 0.0604,
-        "nne_nt": 0.0060,
-        "ht_hours": [16,17,18,19],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "MVV Netze": {
-        "nne_ht": 0.0596,
-        "nne_st": 0.0432,
-        "nne_nt": 0.0173,
-        "ht_hours": [17,18,19],
-        "nt_hours": [0,1,2,3,4,5,6,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "MITNETZ": {
-        "nne_ht": 0.1260,
-        "nne_st": 0.0631,
-        "nne_nt": 0.0069,
-        "ht_hours": [16,17,18,19,20,21],
-        "nt_hours": [0,1,2,3,4,5,6,14,15,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "Stadtwerke München": {
-        "nne_ht": 0.0714,
-        "nne_st": 0.0647,
-        "nne_nt": 0.0259,
-        "ht_hours": [11,12,13,17,18],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "Thüringen Energie": {
-        "nne_ht": 0.0862,
-        "nne_st": 0.0556,
-        "nne_nt": 0.0167,
-        "ht_hours": [16,17,18,19],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "LEW": {
-        "nne_ht": 0.0809,
-        "nne_st": 0.0409,
-        "nne_nt": 0.0041,
-        "ht_hours": [17,18,19,20],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "Netze BW": {
-        "nne_ht": 0.1320,
-        "nne_st": 0.0757,
-        "nne_nt": 0.0303,
-        "ht_hours": [17,18,19,20],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "Bayernwerk": {
-        "nne_ht": 0.0903,
-        "nne_st": 0.0472,
-        "nne_nt": 0.0047,
-        "ht_hours": [17,18,19,20],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-    "EAM Netz": {
-        "nne_ht": 0.1052,
-        "nne_st": 0.0548,
-        "nne_nt": 0.0164,
-        "ht_hours": [16,17,18,19],
-        "nt_hours": [0,1,2,3,4,5,6,22,23],
-        "valid_quarters": [1,2,3,4],
-    },
-}
 
 # ------------------------------------------------------------
 # MARKET PRESETS
@@ -1030,7 +944,29 @@ def build_sidebar_inputs():
             0.0, 0.7, 0.15, 0.01
         )
 
+    
     # ============================================================
+    # SPREAD REALISM: GRID FEES / OVERHEAD
+    # ============================================================
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🧾 DA/ID Spread Adjustments")
+
+    da_overhead = st.sidebar.number_input(
+        "DA overhead per charged kWh (grid fee, taxes, etc., €/kWh)",
+        min_value=0.0, max_value=0.5, value=0.0, step=0.01,
+        help="This amount is subtracted from the DA spread to approximate net arbitrage after grid fees & other per‑kWh charges."
+    )
+    id_overhead = st.sidebar.number_input(
+        "ID overhead per charged kWh (optional, €/kWh)",
+        min_value=0.0, max_value=0.5, value=0.0, step=0.01,
+        help="This amount is subtracted from the ID spread to approximate net arbitrage after grid fees & other per‑kWh charges."
+    )
+
+    # Net spreads actually used in the optimisation engine
+    da_spread_net = max(0.0, da_spread - da_overhead)
+    id_spread_net = max(0.0, id_spread - id_overhead)
+
+# ============================================================
     # ENTSO-E Live Market Input
     # ============================================================
     st.sidebar.markdown("---")
@@ -1185,11 +1121,11 @@ def build_sidebar_inputs():
         afrr_activation_factor = 0
         as_availability_share = 0
 
-    # Return everything needed
+    # Return everything needed (using **net** DA/ID spreads)
     return (
         load_kwh, pv_kwp, pv_yield, grid_price, fit_price,
         batt_capacity, batt_eff, cycles, max_throughput_factor, sc_ratio,
-        da_spread, opt_cap, nonopt_cap, id_spread, id_cap, id_energy_factor,
+        da_spread_net, opt_cap, nonopt_cap, id_spread_net, id_cap, id_energy_factor,
         as_enabled, fcr_power_kw, fcr_price_eur_per_mw_h, fcr_activation_factor,
         afrr_power_kw, afrr_price_eur_per_mw_h, afrr_activation_factor,
         as_availability_share
@@ -2149,15 +2085,30 @@ with tabs[6]:
 
     # Recompute scenario under sensitivity
     df_sens = compute_scenario(
-        load_kwh, pv_kwp, pv_yield,
-        grid_price, fit_price,
-        batt_capacity, batt_eff, cycles, max_throughput_factor, sc_ratio,
-        s_da, s_cap, nonopt_cap,
-        s_id, s_idcap, id_energy_factor,
-        as_enabled,
-        fcr_power_kw, s_fcr, fcr_activation_factor,
-        afrr_power_kw, s_afrr, afrr_activation_factor,
-        as_availability_share
+        load_kwh=load_kwh,
+        pv_kwp=pv_kwp,
+        pv_yield=pv_yield,
+        grid_price=grid_price,
+        fit_price=fit_price,
+        batt_capacity=batt_capacity,
+        batt_eff=batt_eff,
+        cycles_per_day=cycles,
+        sc_ratio_no_batt=sc_ratio,
+        da_spread=s_da,
+        opt_capture=s_cap,
+        nonopt_capture=nonopt_cap,
+        id_spread=s_id,
+        id_capture=s_idcap,
+        id_energy_factor=id_energy_factor,
+        max_throughput_factor=max_throughput_factor,
+        as_enabled=as_enabled,
+        fcr_power_kw=fcr_power_kw,
+        fcr_price_eur_per_mw_h=s_fcr,
+        fcr_activation_factor=fcr_activation_factor,
+        afrr_power_kw=afrr_power_kw,
+        afrr_price_eur_per_mw_h=s_afrr,
+        afrr_activation_factor=afrr_activation_factor,
+        as_availability_share=as_availability_share,
     )
 
     st.subheader("📊 Sensitivity Result")
