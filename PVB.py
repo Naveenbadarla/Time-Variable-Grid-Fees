@@ -351,6 +351,92 @@ def get_pvgis_yield_for_postcode(postal_code: str):
 
     return float(yield_kwh_per_kwp), lat, lon
 
+# ------------------------------------------------------------
+# §14a EnWG – Module 3 DSO presets (NNE grid-fee structures)
+# Prices in €/kWh, hours as 0–23
+# ------------------------------------------------------------
+MODULE3_PRESETS = {
+    "Westnetz": {
+        "nne_ht": 0.1565,
+        "nne_st": 0.0953,
+        "nne_nt": 0.0095,
+        "ht_hours": [15,16,17,18,19,20],
+        "nt_hours": [0,1,2,3,4,5,6,13,14,21,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "Avacon": {
+        "nne_ht": 0.0841,
+        "nne_st": 0.0604,
+        "nne_nt": 0.0060,
+        "ht_hours": [16,17,18,19],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "MVV Netze": {
+        "nne_ht": 0.0596,
+        "nne_st": 0.0432,
+        "nne_nt": 0.0173,
+        "ht_hours": [17,18,19],
+        "nt_hours": [0,1,2,3,4,5,6,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "MITNETZ": {
+        "nne_ht": 0.1260,
+        "nne_st": 0.0631,
+        "nne_nt": 0.0069,
+        "ht_hours": [16,17,18,19,20,21],
+        "nt_hours": [0,1,2,3,4,5,6,14,15,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "Stadtwerke München": {
+        "nne_ht": 0.0714,
+        "nne_st": 0.0647,
+        "nne_nt": 0.0259,
+        "ht_hours": [11,12,13,17,18],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "Thüringen Energie": {
+        "nne_ht": 0.0862,
+        "nne_st": 0.0556,
+        "nne_nt": 0.0167,
+        "ht_hours": [16,17,18,19],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "LEW": {
+        "nne_ht": 0.0809,
+        "nne_st": 0.0409,
+        "nne_nt": 0.0041,
+        "ht_hours": [17,18,19,20],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "Netze BW": {
+        "nne_ht": 0.1320,
+        "nne_st": 0.0757,
+        "nne_nt": 0.0303,
+        "ht_hours": [17,18,19,20],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "Bayernwerk": {
+        "nne_ht": 0.0903,
+        "nne_st": 0.0472,
+        "nne_nt": 0.0047,
+        "ht_hours": [17,18,19,20],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+    "EAM Netz": {
+        "nne_ht": 0.1052,
+        "nne_st": 0.0548,
+        "nne_nt": 0.0164,
+        "ht_hours": [16,17,18,19],
+        "nt_hours": [0,1,2,3,4,5,6,22,23],
+        "valid_quarters": [1,2,3,4],
+    },
+}
 
 # ------------------------------------------------------------
 # MARKET PRESETS
