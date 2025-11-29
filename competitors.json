@@ -1,0 +1,66 @@
+[
+  {
+    "name": "E.ON Solar+Speicher (Beispielhaushalt)",
+    "pv_size": 8.0,
+    "battery_size": 10.0,
+    "claimed_savings": 1295,
+    "source": "https://www.eon.de/de/pk/solar/photovoltaik-kosten.html",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "sonnenFlat + sonnenBatterie (Beispiel)",
+    "pv_size": 7.5,
+    "battery_size": 10.0,
+    "claimed_savings": 1600,
+    "source": "https://sonnen.de/blog/stromtarife-mit-batteriespeichern-wieviel-geld-spart-die-sonnenflat",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "EnBW Solar+Speicher (10 kWp + 10 kWh Beispiel)",
+    "pv_size": 10.0,
+    "battery_size": 10.0,
+    "claimed_savings": 2000,
+    "source": "https://www.enbw.com/blog/energiewende/solarenergie/solarstrom-speichern-ueberblick-ueber-die-stromspeicher/",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "SENEC.Cloud mit PV + Speicher (Beispiel 6.000 kWh PV)",
+    "pv_size": 6.0,
+    "battery_size": 10.0,
+    "claimed_savings": 700,
+    "source": "https://fm-energiezentrum.de/wp-content/uploads/2016/05/Flyer_SENEC_Cloud_Web.pdf",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "Octopus \"Intelligent Octopus\" / Flux (Solar + Speicher)",
+    "pv_size": 8.0,
+    "battery_size": 10.0,
+    "claimed_savings": 700,
+    "source": "https://octopusenergy.de/intelligent-octopus",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "Tibber + PV + Batteriespeicher (dynamischer Tarif)",
+    "pv_size": 8.0,
+    "battery_size": 8.0,
+    "claimed_savings": 500,
+    "source": "https://tibber.com/de/magazine/power-hacks/photovoltaik-kosten",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "Viessmann Vitovolt + Vitocharge VX3 (8,61 kWp + 10 kWh Beispiel)",
+    "pv_size": 8.6,
+    "battery_size": 10.0,
+    "claimed_savings": 1800,
+    "source": "https://www.viessmann.de/de/wissen/anleitungen-und-tipps/eigenverbrauch-pv-anlage.html",
+    "detected_on": "2025-11-23"
+  },
+  {
+    "name": "IKEA / Svea Solar Paket + Speicher (mit dynamischem Tarif)",
+    "pv_size": 8.0,
+    "battery_size": 10.0,
+    "claimed_savings": 1650,
+    "source": "https://www.sveasolar-shop.com/ikea",
+    "detected_on": "2025-11-23"
+  }
+]
